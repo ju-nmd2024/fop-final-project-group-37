@@ -1,7 +1,7 @@
 let x = 800;
 let y = 400;
 let stars = [];
-
+//test
 function setup() {
   createCanvas(1600, 800);
 
