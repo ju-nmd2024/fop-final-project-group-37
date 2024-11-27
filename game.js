@@ -3,7 +3,7 @@ let y = 400;
 let stars = [];
 
 function setup() {
-  createCanvas(windowWidth, windowHeight);
+  createCanvas(1600, 800);
 
   // Generate random stars
   for (let i = 0; i < 1000; i++) {
