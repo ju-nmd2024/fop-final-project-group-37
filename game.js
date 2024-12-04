@@ -3,6 +3,14 @@ let x = 800;
 let y = 400;
 let stars = [];
 
+// Asteroid arrays
+let asteroids = [];
+let miniAsteroids = [];
+
+// Particle arrays
+let sexplosionParticles = [];
+let explosionParticles = [];
+
 // Ship variables
 let sx = 800;
 let sy = 450;
@@ -31,6 +39,10 @@ function setup() {
     let radius2 = radius1 / 7; // outer radius
     stars.push({ x: starX, y: starY, radius1, radius2 }); // Star properties
   }
+    // Spawn initial asteroids
+    for (let i = 0; i < 4; i++) {
+      spawnLargeAsteroid();
+    }
 }
 //ship 
 function ship() {
@@ -168,7 +180,301 @@ function draw() {
       projectiles.splice(i, 1);
     }
   }
+  updateAsteroids();
+  drawAsteroids();
+  sExplosion();
+  drawExplosion();
 }
+function spawnLargeAsteroid() {
+  let attempts = 0;
+  let maxAttempts = 100;
+  let safeToPlace = false;
+  let asteroid;
+  
+  while (!safeToPlace && attempts < maxAttempts) {
+    asteroid = {
+        // Spawns at random location above the screen
+      x: random(width),              
+      y: random(-100, -40),          
+      size: 80,       
+      
+      // Random movement              
+      dx: random(-2, 2),           
+      dy: random(1, 3),  
+
+      type: 'large',                 
+      health: 7                       
+    };
+  
+    safeToPlace = true;
+  
+    // Checking to see if spawn location is empty to spawn otherwise retry somewhere else
+    for (let other of asteroids) {
+      if (checkCollision(asteroid, other)) {
+        safeToPlace = false;
+        break;
+      }
+    }
+    attempts++;
+  }
+  
+  if (safeToPlace) {
+    asteroids.push(asteroid);
+  } else {
+    console.warn("Too many rocks boi");
+  }
+}
+function spawnMiniAsteroids(x, y) {
+  for (let i = 0; i < 2; i++) {
+    let attempts = 0;
+    let maxAttempts = 100;
+    let safeToPlace = false;
+    let miniAsteroid;
+  
+    while (!safeToPlace && attempts < maxAttempts) {
+      miniAsteroid = {
+        // Spawn near where the big asteroid died
+        x: random(x - 20, x + 20), 
+        y: random(y - 20, y + 20),
+        size: 40,
+        dx: random(-3, 3),
+        dy: random(-3, 3),
+        type: 'mini',
+        health: 3,       
+      };
+  
+      safeToPlace = true;
+  
+      for (let other of miniAsteroids) {
+        if (checkCollision(miniAsteroid, other)) {
+          safeToPlace = false;
+          break;
+        }
+      }
+      attempts++;
+    }
+  
+    if (safeToPlace) {
+      miniAsteroids.push(miniAsteroid);
+    } else {
+      console.warn("Could not place mini-asteroid after multiple attempts");
+    }
+  }
+}
+function updateAsteroids() {
+  // Update large asteroids position
+  for (let i = asteroids.length - 1; i >= 0; i--) {
+    let a = asteroids[i];
+    a.x += a.dx;
+    a.y += a.dy;
+  
+    // If an asteroid goes off screen it enters from opposite size
+    if (a.x - a.size / 2 > width) a.x = -a.size / 2;
+    if (a.x + a.size / 2 < 0) a.x = width + a.size / 2;
+    if (a.y - a.size / 2 > height) a.y = -a.size / 2;
+    if (a.y + a.size / 2 < 0) a.y = height + a.size / 2;
+  
+    // Asteroid on asteroid collision
+    for (let j = i + 1; j < asteroids.length; j++) {
+      let b = asteroids[j];
+      if (checkCollision(a, b)) {
+        resolveCollision(a, b);
+      }
+    }
+  
+    // asteroid death checker (remove later)
+    if (keyIsDown(32) && a.type === 'large' && a.health > 0) {
+      a.health--;
+    }
+  
+    // If health reaches 0, destroy asteroid and spawn mini-asteroids and explosion
+    if (a.health <= 0) {
+        triggerExplosion(a.x, a.y); 
+      spawnMiniAsteroids(a.x, a.y);
+      asteroids.splice(i, 1);
+    }
+  }
+  
+  // Update mini-asteroids position
+  for (let i = miniAsteroids.length - 1; i >= 0; i--) {
+    let ma = miniAsteroids[i];
+    ma.x += ma.dx;
+    ma.y += ma.dy;
+  
+    if (ma.x - ma.size / 2 > width) ma.x = -ma.size / 2;
+    if (ma.x + ma.size / 2 < 0) ma.x = width + ma.size / 2;
+    if (ma.y - ma.size / 2 > height) ma.y = -ma.size / 2;
+    if (ma.y + ma.size / 2 < 0) ma.y = height + ma.size / 2;
+  
+    // asteroid death checker (remove later)
+    if (keyIsDown(32) && ma.health > 0) {
+      ma.health--;
+    }
+  
+    // If mini asteroid's health reaches 0, destroy it and trigger explosion
+    if (ma.health <= 0) {
+      triggerExplosion(ma.x, ma.y);
+      miniAsteroids.splice(i, 1);
+    }
+  }
+}
+// Small explosions exploding
+function triggerExplosion(x, y) {
+  for (let i = 0; i < 100; i++) {
+    sexplosionParticles.push(new SexplosionParticle(x, y));
+  }
+}
+// Big explosions exploding
+function createExplosion() {
+    for (let i = 0; i < 200; i++) {
+      explosionParticles.push(new ExplosionParticle(explosionX, explosionY));
+    }
+  }
+
+function drawAsteroids() {
+  for (let a of asteroids) {
+    drawLargeAsteroid(a.x, a.y, a.size);
+  }
+  for (let ma of miniAsteroids) {
+    drawMiniAsteroid(ma.x, ma.y, ma.size);
+  }
+}
+
+function drawLargeAsteroid(x, y, size) {
+  fill(128, 128, 128);
+  noStroke();
+  ellipse(x, y, size);
+
+  fill(100, 100, 100);
+  ellipse(x - 20, y - 10, 15, 10);
+  ellipse(x + 25, y + 15, 20, 12);
+}
+
+function drawMiniAsteroid(x, y, size) {
+  fill(128, 128, 128);
+  noStroke();
+  ellipse(x, y, size);
+
+  fill(100, 100, 100);
+  ellipse(x - 10, y - 5, 7.5, 5);
+  ellipse(x + 12.5, y + 7.5, 10, 6);
+}
+
+// Checks if asteroids collide
+function checkCollision(a, b) {
+  let distance = dist(a.x, a.y, b.x, b.y);
+  return distance < (a.size + b.size) / 2;
+}
+
+// Makes asteroids bounce off eachother
+function resolveCollision(a, b) {
+  let normal = createVector(b.x - a.x, b.y - a.y).normalize();
+  let tangent = createVector(-normal.y, normal.x);
+
+  // Project velocities onto normal and tangent vectors
+  let aNormalVelocity = normal.dot(createVector(a.dx, a.dy));
+  let bNormalVelocity = normal.dot(createVector(b.dx, b.dy));
+  let aTangentVelocity = tangent.dot(createVector(a.dx, a.dy));
+  let bTangentVelocity = tangent.dot(createVector(b.dx, b.dy));
+
+  // Swap normal velocities
+  let aNormalVelocityAfter = bNormalVelocity;
+  let bNormalVelocityAfter = aNormalVelocity;
+
+  // Convert back to original velocity vectors
+  let aNormalVector = normal.copy().mult(aNormalVelocityAfter);
+  let bNormalVector = normal.copy().mult(bNormalVelocityAfter);
+  let aTangentVector = tangent.copy().mult(aTangentVelocity);
+  let bTangentVector = tangent.copy().mult(bTangentVelocity);
+
+  // Update velocities
+  a.dx = aNormalVector.x + aTangentVector.x;
+  a.dy = aNormalVector.y + aTangentVector.y;
+  b.dx = bNormalVector.x + bTangentVector.x;
+  b.dy = bNormalVector.y + bTangentVector.y;
+}
+
+// Small explosion
+function sExplosion() {
+  for (let i = sexplosionParticles.length - 1; i >= 0; i--) {
+    sexplosionParticles[i].update();
+    sexplosionParticles[i].show();
+    if (sexplosionParticles[i].isFinished()) {
+      sexplosionParticles.splice(i, 1);
+    }
+  }
+}
+// Big explosion
+function drawExplosion() {
+    for (let i = explosionParticles.length - 1; i >= 0; i--) {
+      explosionParticles[i].update();
+      explosionParticles[i].show();
+      if (explosionParticles[i].isFinished()) {
+        explosionParticles.splice(i, 1);
+      }
+    }
+  }
+
+// Small explosion
+class SexplosionParticle {
+  constructor(x, y) {
+    this.x = x;
+    this.y = y;
+    this.size = random(4, 8);
+    this.color = color(random(255, 255), random(100, 200), random(0, 50));
+    this.speed = random(1.5, 4);
+    this.angle = random(TWO_PI);
+    this.alpha = 255;
+  }
+
+  update() {
+    this.x += this.speed * cos(this.angle);
+    this.y += this.speed * sin(this.angle);
+    this.size *= 0.95;
+    this.alpha -= 5;
+  }
+
+  show() {
+    noStroke();
+    fill(red(this.color), green(this.color), blue(this.color), this.alpha);
+    ellipse(this.x, this.y, this.size);
+  }
+
+  isFinished() {
+    return this.alpha <= 0 || this.size < 1;
+  }
+}
+// Big explosion
+class ExplosionParticle {
+    constructor(x, y) {
+      this.x = x;
+      this.y = y;
+      this.size = random(8, 15);
+      this.color = color(random(255, 255), random(100, 200), random(0, 50));
+      this.speed = random(3, 8);
+      this.angle = random(TWO_PI);
+      this.alpha = 255;
+    }
+  
+    update() {
+      this.x += this.speed * cos(this.angle);
+      this.y += this.speed * sin(this.angle);
+      this.size *= 0.95;
+      this.alpha -= 5;
+    }
+  
+    show() {
+      noStroke();
+      fill(red(this.color), green(this.color), blue(this.color), this.alpha);
+      ellipse(this.x, this.y, this.size);
+    }
+  
+    isFinished() {
+      return this.alpha <= 0 || this.size < 1;
+    }
+  }
+  
+
 
 // Function to draw a star
 function drawStar(x, y, radius1, radius2, npoints) {
