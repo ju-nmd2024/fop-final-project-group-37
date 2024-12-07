@@ -14,7 +14,7 @@ let explosionParticles = [];
 // Ship variables
 let sx = 800;
 let sy = 450;
-let s = 0.5;
+let s = 0.3;
 let angle = 0;
 let vx = 0;
 let vy = 0;
@@ -40,7 +40,7 @@ function setup() {
     stars.push({ x: starX, y: starY, radius1, radius2 }); // Star properties
   }
     // Spawn initial asteroids
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 6; i++) {
       spawnLargeAsteroid();
     }
 }
@@ -158,6 +158,12 @@ function draw() {
   vx *= friction;
   vy *= friction;
 
+  // If the ship goes off screen it enters from opposite size
+  if (sx > width) sx = 0;
+  if (sx < 0) sx = width;
+  if (sy > height) sy = 0;
+  if (sy < 0) sy = height;
+
   // Shooting mechanism
   if (shooting && shootTimer <= 0) {
     let tipX = sx + sin(angle) * 240 * s;
@@ -221,21 +227,21 @@ function spawnLargeAsteroid() {
   if (safeToPlace) {
     asteroids.push(asteroid);
   } else {
-    console.warn("Too many rocks boi");
+    console.warn("Not enough space for asteroid");
   }
 }
 function spawnMiniAsteroids(x, y) {
-  for (let i = 0; i < 2; i++) {
+  for (let i = 0; i < 4; i++) {
     let attempts = 0;
-    let maxAttempts = 100;
+    let maxAttempts = 200;
     let safeToPlace = false;
     let miniAsteroid;
   
     while (!safeToPlace && attempts < maxAttempts) {
       miniAsteroid = {
         // Spawn near where the big asteroid died
-        x: random(x - 20, x + 20), 
-        y: random(y - 20, y + 20),
+        x: random(x - 40, x + 40), 
+        y: random(y - 40, y + 40),
         size: 40,
         dx: random(-3, 3),
         dy: random(-3, 3),
@@ -257,7 +263,7 @@ function spawnMiniAsteroids(x, y) {
     if (safeToPlace) {
       miniAsteroids.push(miniAsteroid);
     } else {
-      console.warn("Could not place mini-asteroid after multiple attempts");
+      console.warn("Not enough space for mini asteroid");
     }
   }
 }
