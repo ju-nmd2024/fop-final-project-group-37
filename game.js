@@ -12,8 +12,8 @@ let sexplosionParticles = [];
 let explosionParticles = [];
 
 // Ship variables
-let sx = 800;
-let sy = 450;
+let sx = 100;//800;
+let sy = 100;//450;
 let s = 0.3;
 let angle = 0;
 let vx = 0;
@@ -31,13 +31,13 @@ function setup() {
   createCanvas(1600, 800);
 
   // Generate random stars
-  for (let i = 0; i < 1000; i++) {
+  for (let i = 0; i < 300; i++) {
     // Increase stars
-    let starX = random(0, 1600); // Randomizes stars X
-    let starY = random(0, 800); // Randomizes stars Y
-    let radius1 = random(1, 2); // Small stars (outer radius)
-    let radius2 = radius1 / 7; // outer radius
-    stars.push({ x: starX, y: starY, radius1, radius2 }); // Star properties
+    let starX = random(0, 1600);
+    let starY = random(0, 800);
+    let radius1 = random(1, 2);
+    let radius2 = radius1 / 7;
+    stars.push({ x: starX, y: starY, radius1, radius2 });
   }
     // Spawn initial asteroids
     for (let i = 0; i < 6; i++) {
@@ -123,11 +123,11 @@ class Projectile {
 
 
 function draw() {
-  background(0, 0, 20); // dark blue backgorund
+  background(0, 0, 20);
 
   // Draw stars
   for (let star of stars) {
-    drawStar(star.x, star.y, star.radius1, star.radius2, 5); // Draw star with 5 points
+    drawStar(star.x, star.y, star.radius1, star.radius2, 5);
   }
   
   // Ship controls
@@ -173,23 +173,70 @@ function draw() {
     shootTimer = 5; 
   }
   if (shootTimer > 0) shootTimer--;
-  
+
   ship();
-
-  // Update and draw projectiles
-  for (let i = projectiles.length - 1; i >= 0; i--) {
-    projectiles[i].update();
-    projectiles[i].draw();
-
-    // Remove projectiles that go off-screen
-    if (projectiles[i].x < 0 || projectiles[i].x > width || projectiles[i].y < 0 || projectiles[i].y > height) {
-      projectiles.splice(i, 1);
-    }
-  }
   updateAsteroids();
   drawAsteroids();
   sExplosion();
   drawExplosion();
+
+  for (let i = projectiles.length - 1; i >= 0; i--) {
+    projectiles[i].update();
+    projectiles[i].draw();
+
+     // Remove projectiles that go off-screen
+     if (projectiles[i].x < 0 || projectiles[i].x > width || projectiles[i].y < 0 || projectiles[i].y > height) {
+      projectiles.splice(i, 1);
+    }
+  
+    let projectileRemoved = false;
+  
+    // Shooting the large asteroids
+  for (let j = asteroids.length - 1; j >= 0; j--) {
+    let a = asteroids[j];
+    if (projectiles[i]){
+      let distance = dist(projectiles[i].x, projectiles[i].y, a.x, a.y);
+
+      if (distance < a.size / 2) {
+        a.health -= 1;
+        projectiles.splice(i, 1);
+        projectileRemoved = true;
+  
+        // Asteroid exploding once dead
+        if (a.health <= 0) {
+          triggerExplosion(a.x, a.y);
+          spawnMiniAsteroids(a.x, a.y);
+          asteroids.splice(j, 1);
+        }
+        break;
+      }
+    }
+
+  }
+  
+    // Shooting mini asteroids
+    if (!projectileRemoved) {
+      for (let j = miniAsteroids.length - 1; j >= 0; j--) {
+        let ma = miniAsteroids[j];
+        if (projectiles[i]){
+          let distance = dist(projectiles[i].x, projectiles[i].y, ma.x, ma.y);
+  
+          if (distance < ma.size / 2) {
+            ma.health -= 1; 
+            projectiles.splice(i, 1);
+    
+            // Mini asteroid exploding when dying
+            if (ma.health <= 0) {
+              triggerExplosion(ma.x, ma.y);
+              miniAsteroids.splice(j, 1);
+            }
+            break;
+          }
+        }
+      }
+    }
+  }
+  
 }
 function spawnLargeAsteroid() {
   let attempts = 0;
@@ -227,7 +274,7 @@ function spawnLargeAsteroid() {
   if (safeToPlace) {
     asteroids.push(asteroid);
   } else {
-    console.warn("Not enough space for asteroid");
+    console.warn("Asteroid couldnt find a place to spawn");
   }
 }
 function spawnMiniAsteroids(x, y) {
@@ -263,7 +310,7 @@ function spawnMiniAsteroids(x, y) {
     if (safeToPlace) {
       miniAsteroids.push(miniAsteroid);
     } else {
-      console.warn("Not enough space for mini asteroid");
+      console.warn("Asteroid couldnt find a place to spawn");
     }
   }
 }
@@ -273,57 +320,65 @@ function updateAsteroids() {
     let a = asteroids[i];
     a.x += a.dx;
     a.y += a.dy;
-  
-    // If an asteroid goes off screen it enters from opposite size
+
+    // Going off the edge of the screen makes them appear on the other side
     if (a.x - a.size / 2 > width) a.x = -a.size / 2;
     if (a.x + a.size / 2 < 0) a.x = width + a.size / 2;
     if (a.y - a.size / 2 > height) a.y = -a.size / 2;
     if (a.y + a.size / 2 < 0) a.y = height + a.size / 2;
-  
-    // Asteroid on asteroid collision
+
+    // Check collision between asteroids
     for (let j = i + 1; j < asteroids.length; j++) {
       let b = asteroids[j];
       if (checkCollision(a, b)) {
         resolveCollision(a, b);
       }
     }
-  
-    // asteroid death checker (remove later)
-    if (keyIsDown(32) && a.type === 'large' && a.health > 0) {
-      a.health--;
+
+    // Check collision with mini asteroids
+    for (let j = 0; j < miniAsteroids.length; j++) {
+      let ma = miniAsteroids[j];
+      if (checkCollision(a, ma)) {
+        resolveCollision(a, ma);
+      }
     }
-  
-    // If health reaches 0, destroy asteroid and spawn mini-asteroids and explosion
+
+    // Asteroid dying
     if (a.health <= 0) {
-        triggerExplosion(a.x, a.y); 
+      triggerExplosion(a.x, a.y);
       spawnMiniAsteroids(a.x, a.y);
       asteroids.splice(i, 1);
     }
   }
-  
-  // Update mini-asteroids position
+
+  // Update mini asteroid position
   for (let i = miniAsteroids.length - 1; i >= 0; i--) {
     let ma = miniAsteroids[i];
     ma.x += ma.dx;
     ma.y += ma.dy;
-  
+
+    // Going off the edge off the screen makes them appear on the other side
     if (ma.x - ma.size / 2 > width) ma.x = -ma.size / 2;
     if (ma.x + ma.size / 2 < 0) ma.x = width + ma.size / 2;
     if (ma.y - ma.size / 2 > height) ma.y = -ma.size / 2;
     if (ma.y + ma.size / 2 < 0) ma.y = height + ma.size / 2;
-  
-    // asteroid death checker (remove later)
-    if (keyIsDown(32) && ma.health > 0) {
-      ma.health--;
+
+    // Check collision between mini asteroids
+    for (let j = i + 1; j < miniAsteroids.length; j++) {
+      let other = miniAsteroids[j];
+      if (checkCollision(ma, other)) {
+        resolveCollision(ma, other);
+      }
     }
-  
-    // If mini asteroid's health reaches 0, destroy it and trigger explosion
+
+    // Mini asteroid dying
     if (ma.health <= 0) {
       triggerExplosion(ma.x, ma.y);
       miniAsteroids.splice(i, 1);
     }
   }
 }
+
 // Small explosions exploding
 function triggerExplosion(x, y) {
   for (let i = 0; i < 100; i++) {
@@ -482,23 +537,10 @@ class ExplosionParticle {
   
 
 
-// Function to draw a star
-function drawStar(x, y, radius1, radius2, npoints) {
-  let angle = TWO_PI / npoints; // Full circle divided by number of points
-  let halfAngle = angle / 2.0; // Midway angle between points
-
-  fill(255, 255, 255); // Set star color to white
-  noStroke(); // Remove outline
-
-  beginShape(); // Start the custom shape
-  for (let a = 0; a < TWO_PI; a += angle) {
-    let sx = x + cos(a) * radius1; // Outer point
-    let sy = y + sin(a) * radius1;
-    vertex(sx, sy); // Add vertex for outer point
-
-    sx = x + cos(a + halfAngle) * radius2; // Inner point
-    sy = y + sin(a + halfAngle) * radius2;
-    vertex(sx, sy); // Add vertex for inner point
+  function drawStar(x, y, radius1, radius2, npoints) {
+    // Stars
+    fill(255, 255, 255);
+    noStroke();
+    ellipse(x, y, radius1 * 2, radius1 * 2);
   }
-  endShape(CLOSE);
-}
+  
